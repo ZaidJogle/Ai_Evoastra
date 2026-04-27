@@ -32,7 +32,28 @@ def risk_label(prob):
         return "🟠 Medium Risk"
     else:
         return "🔴 High Risk"
-
+FEATURE_LABELS = {
+    "P_2": "Recent Payment Amount",
+    "D_39": "Payment Delay Score",
+    "B_1": "Outstanding Balance",
+    "B_2": "Credit Utilization",
+    "R_1": "Risk Indicator",
+    "S_3": "Spending Pattern",
+    "D_41": "Recent Delay Count",
+    "B_3": "Balance Change",
+    "D_42": "Missed Payment Indicator",
+    "D_43": "Late Payment Trend",
+    "D_44": "Payment Consistency",
+    "B_4": "Balance Variation",
+    "D_45": "Repayment Behaviour",
+    "B_5": "Credit Usage Level",
+    "R_2": "Risk Pattern",
+    "D_46": "Payment Stability",
+    "D_47": "Default Signal",
+    "D_48": "Credit Health",
+    "D_49": "Financial Stress",
+    "B_6": "Outstanding Dues",
+}
 st.title("💳 Credit Risk Predictor")
 st.caption("Check if a customer is likely to default based on financial behavior")
 
