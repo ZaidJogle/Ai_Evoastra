@@ -25,6 +25,7 @@ def load_models():
 
 models = load_models()
 
+# ── Risk Label ─────────────────────────
 def risk_label(prob):
     if prob < 0.3:
         return "🟢 Low Risk"
@@ -32,6 +33,8 @@ def risk_label(prob):
         return "🟠 Medium Risk"
     else:
         return "🔴 High Risk"
+
+# ── Feature Labels (AMEX UI) ───────────
 FEATURE_LABELS = {
     "P_2": "Recent Payment Amount",
     "D_39": "Payment Delay Score",
@@ -54,13 +57,15 @@ FEATURE_LABELS = {
     "D_49": "Financial Stress",
     "B_6": "Outstanding Dues",
 }
+
+# ── UI ─────────────────────────
 st.title("💳 Credit Risk Predictor")
 st.caption("Check if a customer is likely to default based on financial behavior")
 
 tab1, tab2 = st.tabs(["🏦 GMSC (Basic Users)", "🏢 AMEX (Advanced Users)"])
 
 # ═══════════════════════════════
-# GMSC TAB (User Friendly)
+# GMSC TAB
 # ═══════════════════════════════
 with tab1:
 
@@ -94,39 +99,42 @@ with tab1:
         "debt_ratio": debt,
         "income_to_debt": income/(debt+1)
     }])
-if st.button("🔍 Check Risk (GMSC)"):
-      model = models["gmsc"]
+
+    if st.button("🔍 Check Risk (GMSC)"):
+
+        model = models["gmsc"]
 
         if model:
             try:
                 features = model.feature_names_in_
+
                 for col in features:
                     if col not in gmsc_input:
                         gmsc_input[col] = 0
+
                 gmsc_input = gmsc_input[features]
 
                 prob = float(model.predict_proba(gmsc_input)[0][1])
 
                 st.success("✅ Prediction Complete")
-
                 st.metric("📊 Default Probability", f"{prob:.2%}")
                 st.progress(prob)
 
-                st.subheader("🧠 What this means")
+                st.subheader("🧠 Interpretation")
 
                 if prob > 0.7:
                     st.error("🔴 High risk: Customer may default")
                 elif prob > 0.3:
-                    st.warning("🟠 Moderate risk: Be cautious")
+                    st.warning("🟠 Moderate risk")
                 else:
-                    st.success("🟢 Low risk: Customer is safe")
+                    st.success("🟢 Low risk")
 
             except Exception as e:
-                st.error("Error in prediction")
+                st.error("Prediction error")
                 st.write(e)
 
 # ═══════════════════════════════
-# AMEX TAB (Advanced Users)
+# AMEX TAB
 # ═══════════════════════════════
 with tab2:
 
@@ -134,25 +142,27 @@ with tab2:
 
     model = models["amex"]
 
-    FEATURES = list(model.feature_names_in_)
+    if model is None:
+        st.error("Model not found")
+    else:
+        FEATURES = list(model.feature_names_in_)
 
-    if st.button("⚡ Fill Sample Data"):
+        if st.button("⚡ Fill Sample Data"):
+            for f in FEATURES:
+                st.session_state[f] = np.random.uniform(0, 1000)
+
+        amex_vals = {}
+
         for f in FEATURES:
-            st.session_state[f] = np.random.uniform(0, 1000)
+            label = FEATURE_LABELS.get(f, "Financial Indicator")
 
-    amex_vals = {}
+            amex_vals[f] = st.number_input(
+                label,
+                value=st.session_state.get(f, 0.0),
+                key=f
+            )
 
-    # ✅ PLACE YOUR CODE HERE 👇
-    for f in FEATURES:
-        label = FEATURE_LABELS.get(f, "Financial Indicator")
-
-        amex_vals[f] = st.number_input(
-            label,
-            value=st.session_state.get(f, 0.0),
-            key=f
-        )
-
-    amex_input = pd.DataFrame([amex_vals])
+        amex_input = pd.DataFrame([amex_vals])
 
         if st.button("🔍 Check Risk (AMEX)"):
 
@@ -166,14 +176,13 @@ with tab2:
                 prob = float(model.predict_proba(amex_input)[0][1])
 
                 st.success("✅ Prediction Complete")
-
                 st.metric("📊 Default Probability", f"{prob:.2%}")
                 st.progress(prob)
 
                 st.subheader("🧠 Interpretation")
 
                 if prob > 0.7:
-                    st.error("🔴 High risk: Likely to default")
+                    st.error("🔴 High risk")
                 elif prob > 0.3:
                     st.warning("🟠 Moderate risk")
                 else:
