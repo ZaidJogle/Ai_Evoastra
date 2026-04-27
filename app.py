@@ -89,7 +89,7 @@ with tab_gmsc:
 
                 st.metric("Default Probability", f"{prob:.2%}")
                 st.markdown(f"### {risk_label(prob)}")
-                st.progress(prob)
+                st.progress(float(prob))
 
             except Exception as e:
                 st.error("GMSC Prediction Error")
