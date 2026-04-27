@@ -94,7 +94,34 @@ with tab_gmsc:
             except Exception as e:
                 st.error("GMSC Prediction Error")
                 st.write(e)
+# ── GMSC Explanation ─────────────────
+st.subheader("🧠 Prediction Explanation")
 
+explanation = []
+
+if prob > 0.7:
+    explanation.append("🔴 High risk: Customer is likely to default.")
+elif prob > 0.3:
+    explanation.append("🟠 Moderate risk: Some financial warning signs detected.")
+else:
+    explanation.append("🟢 Low risk: Customer is financially stable.")
+
+# Feature-based reasoning
+if gmsc_input["NumberOfTimes90DaysLate"][0] > 0:
+    explanation.append("⚠️ History of 90+ days late payments.")
+
+if gmsc_input["DebtRatio"][0] > 0.5:
+    explanation.append("⚠️ High debt compared to income.")
+
+if gmsc_input["RevolvingUtilizationOfUnsecuredLines"][0] > 0.7:
+    explanation.append("⚠️ High credit utilization.")
+
+if gmsc_input["MonthlyIncome"][0] < 3000:
+    explanation.append("⚠️ Low monthly income may affect repayment ability.")
+
+# Show explanation
+for line in explanation:
+    st.write("•", line)
 # ═══════════════════════════════════════
 # AMEX TAB (FULLY FIXED)
 # ═══════════════════════════════════════
