@@ -45,7 +45,7 @@ tab_gmsc, tab_amex = st.tabs(["🏦 GMSC", "🏢 AMEX"])
 # ═══════════════════════════════════════
 with tab_gmsc:
 
-    if st.button("🔍 Predict GMSC Risk", use_container_width=True):
+if st.button("🔍 Predict GMSC Risk", use_container_width=True):
 
     model_key = "gmsc_xgb" if "XGBoost" in model_choice_gmsc else "gmsc"
     model = models.get(model_key)
