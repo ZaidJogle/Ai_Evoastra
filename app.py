@@ -174,7 +174,7 @@ with tab_amex:
 
                 st.metric("Default Probability", f"{prob:.2%}")
                 st.markdown(f"### {risk_label(prob)}")
-                st.progress(prob)
+                st.progress(float(prob))
 
                 # Explanation
                 st.subheader("🧠 Explanation")
