@@ -134,19 +134,15 @@ with tab2:
 
     model = models["amex"]
 
-    if model is None:
-        st.error("Model not found")
-    else:
-        FEATURES = list(model.feature_names_in_)
+    FEATURES = list(model.feature_names_in_)
 
-        st.info("⚠️ This section is for advanced users (financial features required)")
+    if st.button("⚡ Fill Sample Data"):
+        for f in FEATURES:
+            st.session_state[f] = np.random.uniform(0, 1000)
 
-        if st.button("⚡ Fill Sample Data"):
-            for f in FEATURES:
-                st.session_state[f] = np.random.uniform(0, 1000)
+    amex_vals = {}
 
-        amex_vals = {}
-
+    # ✅ PLACE YOUR CODE HERE 👇
     for f in FEATURES:
         label = FEATURE_LABELS.get(f, "Financial Indicator")
 
