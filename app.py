@@ -160,7 +160,7 @@ with tab_amex:
 
         amex_input = pd.DataFrame([amex_vals])
 
-       if st.button("🔍 Predict"):
+       if st.button("🔍 Predict");
 
             # 1️⃣ Prediction first
             prob = model.predict_proba(input_data)[0][1]
