@@ -26,7 +26,7 @@ def load_models():
 
 models = load_models()
 
-# ── Risk Label ─────────────────────────
+# ── Risk label ─────────────────────────
 def risk_label(prob):
     if prob < 0.3:
         return "🟢 Low Risk"
@@ -41,38 +41,59 @@ st.title("💳 Credit Risk Predictor")
 tab_gmsc, tab_amex = st.tabs(["🏦 GMSC", "🏢 AMEX"])
 
 # ═══════════════════════════════════════
-# GMSC TAB (NO CHANGE - WORKING)
+# GMSC TAB (FIXED)
 # ═══════════════════════════════════════
-if st.button("🔍 Predict GMSC Risk", use_container_width=True):
+with tab_gmsc:
 
-    model_key = "gmsc_xgb" if "XGBoost" in model_choice_gmsc else "gmsc"
-    model = models.get(model_key)
+    st.subheader("GMSC Risk Prediction")
 
-    if model is None:
-        st.error("Model not found")
-    else:
-        try:
-            # ✅ Get correct feature names
-            gmsc_features = model.feature_names_in_
+    # Inputs
+    age = st.number_input("Age", 18, 100, 40)
+    income = st.number_input("Monthly Income", 0, 100000, 5000)
+    debt = st.slider("Debt Ratio", 0.0, 10.0, 0.5)
 
-            # Add missing columns
-            for col in gmsc_features:
-                if col not in gmsc_input:
-                    gmsc_input[col] = 0
+    gmsc_input = pd.DataFrame([{
+        "age": age,
+        "MonthlyIncome": income,
+        "DebtRatio": debt,
+        "RevolvingUtilizationOfUnsecuredLines": 0.3,
+        "NumberOfTime30-59DaysPastDueNotWorse": 0,
+        "NumberOfTime60-89DaysPastDueNotWorse": 0,
+        "NumberOfTimes90DaysLate": 0,
+        "NumberOfOpenCreditLinesAndLoans": 5,
+        "NumberRealEstateLoansOrLines": 1,
+        "NumberOfDependents": 0,
+        "debt_ratio": debt,
+        "income_to_debt": income/(debt+1)
+    }])
 
-            # Keep only required columns in correct order
-            gmsc_input = gmsc_input[gmsc_features]
+    model_choice = st.selectbox("Select Model", ["gmsc", "gmsc_xgb"])
 
-            prob = model.predict_proba(gmsc_input)[0][1]
-            label, _ = risk_label(prob)
+    if st.button("🔍 Predict GMSC Risk"):
+        model = models.get(model_choice)
 
-            st.metric("Default Probability", f"{prob:.2%}")
-            st.markdown(f"### {label}")
-            st.progress(prob)
+        if model is None:
+            st.error("Model not found!")
+        else:
+            try:
+                # ✅ FIX: align features
+                features = model.feature_names_in_
 
-        except Exception as e:
-            st.error("⚠️ Feature mismatch in GMSC model")
-            st.write(e)
+                for col in features:
+                    if col not in gmsc_input:
+                        gmsc_input[col] = 0
+
+                gmsc_input = gmsc_input[features]
+
+                prob = model.predict_proba(gmsc_input)[0][1]
+
+                st.metric("Default Probability", f"{prob:.2%}")
+                st.markdown(f"### {risk_label(prob)}")
+                st.progress(prob)
+
+            except Exception as e:
+                st.error("GMSC Prediction Error")
+                st.write(e)
 
 # ═══════════════════════════════════════
 # AMEX TAB (FULLY FIXED)
@@ -81,28 +102,28 @@ with tab_amex:
 
     st.subheader("AMEX Default Prediction")
 
-    model = models["amex"]
+    model_choice = st.selectbox("Select Model", ["amex", "amex_xgb"])
+    model = models.get(model_choice)
 
     if model is None:
-        st.error("AMEX model not found!")
+        st.error("Model not found!")
     else:
-
-        # ✅ Get EXACT features from model
         try:
             FEATURES = list(model.feature_names_in_)
         except:
-            st.error("Model missing feature names. Retrain with DataFrame!")
+            st.error("Model missing feature names!")
             st.stop()
 
-        st.info("Fill customer details below")
+        st.info("Enter customer details")
 
-        # Auto Fill
+        # Auto-fill
         if st.button("⚡ Auto Fill Sample"):
             for f in FEATURES:
                 st.session_state[f] = np.random.uniform(0, 1000)
 
-        # Input UI
         amex_vals = {}
+
+        # Dynamic input
         for f in FEATURES:
             amex_vals[f] = st.number_input(
                 f,
@@ -112,11 +133,10 @@ with tab_amex:
 
         amex_input = pd.DataFrame([amex_vals])
 
-        # ── Prediction ─────────────────
         if st.button("🔍 Predict AMEX Risk"):
 
             try:
-                # ✅ Ensure correct columns
+                # ✅ Align features
                 for col in FEATURES:
                     if col not in amex_input:
                         amex_input[col] = 0
@@ -124,20 +144,13 @@ with tab_amex:
                 amex_input = amex_input[FEATURES]
 
                 prob = model.predict_proba(amex_input)[0][1]
-                label = risk_label(prob)
 
-                # Result
-                st.subheader("📊 Result")
-                col1, col2 = st.columns(2)
-
-                col1.metric("Probability", f"{prob:.2%}")
-                col2.markdown(f"### {label}")
-
+                st.metric("Default Probability", f"{prob:.2%}")
+                st.markdown(f"### {risk_label(prob)}")
                 st.progress(prob)
 
-                # ── Explanation ─────────────────
+                # Explanation
                 st.subheader("🧠 Explanation")
-
                 if prob > 0.7:
                     st.write("• High risk due to unstable financial behavior.")
                 elif prob > 0.3:
@@ -145,8 +158,10 @@ with tab_amex:
                 else:
                     st.write("• Low risk, stable customer.")
 
-                st.write("• Based on payment patterns, credit usage and history.")
-
             except Exception as e:
-                st.error("Prediction failed due to feature mismatch")
+                st.error("AMEX Prediction Error")
                 st.write(e)
+
+# Footer
+st.divider()
+st.caption("ML Models: Logistic Regression | XGBoost | Ensemble")
