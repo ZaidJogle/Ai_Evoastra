@@ -11,9 +11,7 @@ def load_models():
     models = {}
     files = {
         "gmsc": "gmsc_model.pkl",
-        "gmsc_xgb": "gmsc_xgb_model.pkl",
         "amex": "amex_model.pkl",
-        "amex_xgb": "amex_xgb_model.pkl",
     }
     for key, fname in files.items():
         try:
@@ -43,19 +41,6 @@ FEATURE_LABELS = {
     "R_1": "Risk Indicator",
     "S_3": "Spending Pattern",
     "D_41": "Recent Delay Count",
-    "B_3": "Balance Change",
-    "D_42": "Missed Payment Indicator",
-    "D_43": "Late Payment Trend",
-    "D_44": "Payment Consistency",
-    "B_4": "Balance Variation",
-    "D_45": "Repayment Behaviour",
-    "B_5": "Credit Usage Level",
-    "R_2": "Risk Pattern",
-    "D_46": "Payment Stability",
-    "D_47": "Default Signal",
-    "D_48": "Credit Health",
-    "D_49": "Financial Stress",
-    "B_6": "Outstanding Dues",
 }
 
 # ── UI ─────────────────────────
@@ -106,13 +91,12 @@ with tab1:
 
         if model:
             try:
-                features = model.feature_names_in_
-
-                for col in features:
+                # Align features
+                for col in model.feature_names_in_:
                     if col not in gmsc_input:
                         gmsc_input[col] = 0
 
-                gmsc_input = gmsc_input[features]
+                gmsc_input = gmsc_input[model.feature_names_in_]
 
                 prob = float(model.predict_proba(gmsc_input)[0][1])
 
@@ -120,18 +104,37 @@ with tab1:
                 st.metric("📊 Default Probability", f"{prob:.2%}")
                 st.progress(prob)
 
-                st.subheader("🧠 Interpretation")
+                st.subheader("🧠 Explanation")
 
-                if prob > 0.7:
-                    st.error("🔴 High risk: Customer may default")
-                elif prob > 0.3:
-                    st.warning("🟠 Moderate risk")
+                reasons = []
+
+                if debt > 0.6:
+                    reasons.append("High debt ratio")
+
+                if late_payments > 3:
+                    reasons.append("Too many late payments")
+
+                if income < 3000:
+                    reasons.append("Low income")
+
+                if credit_lines < 2:
+                    reasons.append("Limited credit history")
+
+                if dependents > 3:
+                    reasons.append("High financial burden")
+
+                if len(reasons) == 0:
+                    st.success("Customer profile looks financially stable ✅")
                 else:
-                    st.success("🟢 Low risk")
+                    st.write("📌 Key Risk Factors:")
+                    for r in reasons:
+                        st.write(f"• {r}")
 
             except Exception as e:
                 st.error("Prediction error")
                 st.write(e)
+        else:
+            st.error("Model not found")
 
 # ═══════════════════════════════
 # AMEX TAB
@@ -145,48 +148,71 @@ with tab2:
     if model is None:
         st.error("Model not found")
     else:
-        FEATURES = list(model.feature_names_in_)
+        # Reduced features (only 7 inputs)
+        FEATURES = [
+            "P_2",
+            "D_39",
+            "B_1",
+            "B_2",
+            "R_1",
+            "S_3",
+            "D_41"
+        ]
 
         if st.button("⚡ Fill Sample Data"):
             for f in FEATURES:
-                st.session_state[f] = np.random.uniform(0, 1000)
+                st.session_state[f] = float(np.random.uniform(0, 1000))
 
         amex_vals = {}
 
         for f in FEATURES:
-            label = FEATURE_LABELS.get(f, "Financial Indicator")
-
             amex_vals[f] = st.number_input(
-                label,
-                value=st.session_state.get(f, 0.0),
+                FEATURE_LABELS.get(f, f),
+                value=float(st.session_state.get(f, 0.0)),
                 key=f
             )
 
-        amex_input = pd.DataFrame([amex_vals])
-
         if st.button("🔍 Check Risk (AMEX)"):
-
             try:
-                for col in FEATURES:
-                    if col not in amex_input:
-                        amex_input[col] = 0
+                # Create full input with all model features
+                full_input = pd.DataFrame([{}])
 
-                amex_input = amex_input[FEATURES]
+                for col in model.feature_names_in_:
+                    if col in amex_vals:
+                        full_input[col] = amex_vals[col]
+                    else:
+                        full_input[col] = 0
 
-                prob = float(model.predict_proba(amex_input)[0][1])
+                full_input = full_input[model.feature_names_in_]
+
+                prob = float(model.predict_proba(full_input)[0][1])
 
                 st.success("✅ Prediction Complete")
                 st.metric("📊 Default Probability", f"{prob:.2%}")
                 st.progress(prob)
 
-                st.subheader("🧠 Interpretation")
+                st.subheader("🧠 Explanation")
 
-                if prob > 0.7:
-                    st.error("🔴 High risk")
-                elif prob > 0.3:
-                    st.warning("🟠 Moderate risk")
+                reasons = []
+
+                if amex_vals["D_39"] > 500:
+                    reasons.append("High payment delay score")
+
+                if amex_vals["B_2"] > 0.8:
+                    reasons.append("High credit utilization")
+
+                if amex_vals["D_41"] > 2:
+                    reasons.append("Frequent delays")
+
+                if amex_vals["P_2"] < 100:
+                    reasons.append("Low recent payment")
+
+                if len(reasons) == 0:
+                    st.success("Customer financial behavior looks stable ✅")
                 else:
-                    st.success("🟢 Low risk")
+                    st.write("📌 Key Risk Factors:")
+                    for r in reasons:
+                        st.write(f"• {r}")
 
             except Exception as e:
                 st.error("Prediction error")
