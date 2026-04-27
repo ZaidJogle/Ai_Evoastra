@@ -45,34 +45,36 @@ tab_gmsc, tab_amex = st.tabs(["🏦 GMSC", "🏢 AMEX"])
 # ═══════════════════════════════════════
 with tab_gmsc:
 
-    st.subheader("GMSC Risk Prediction")
+    if st.button("🔍 Predict GMSC Risk", use_container_width=True):
 
-    age = st.number_input("Age", 18, 100, 40)
-    income = st.number_input("Monthly Income", 0, 100000, 5000)
-    debt = st.slider("Debt Ratio", 0.0, 10.0, 0.5)
+    model_key = "gmsc_xgb" if "XGBoost" in model_choice_gmsc else "gmsc"
+    model = models.get(model_key)
 
-    gmsc_input = pd.DataFrame([{
-        "age": age,
-        "MonthlyIncome": income,
-        "DebtRatio": debt,
-        "RevolvingUtilizationOfUnsecuredLines": 0.3,
-        "NumberOfTime30-59DaysPastDueNotWorse": 0,
-        "NumberOfTime60-89DaysPastDueNotWorse": 0,
-        "NumberOfTimes90DaysLate": 0,
-        "NumberOfOpenCreditLinesAndLoans": 5,
-        "NumberRealEstateLoansOrLines": 1,
-        "NumberOfDependents": 0,
-        "debt_ratio": debt,
-        "income_to_debt": income/(debt+1)
-    }])
+    if model is None:
+        st.error("Model not found")
+    else:
+        try:
+            # ✅ Get correct feature names
+            gmsc_features = model.feature_names_in_
 
-    if st.button("Predict GMSC"):
-        model = models["gmsc"]
-        if model:
+            # Add missing columns
+            for col in gmsc_features:
+                if col not in gmsc_input:
+                    gmsc_input[col] = 0
+
+            # Keep only required columns in correct order
+            gmsc_input = gmsc_input[gmsc_features]
+
             prob = model.predict_proba(gmsc_input)[0][1]
-            st.success(f"Risk: {risk_label(prob)} ({prob:.2%})")
-        else:
-            st.error("Model not found")
+            label, _ = risk_label(prob)
+
+            st.metric("Default Probability", f"{prob:.2%}")
+            st.markdown(f"### {label}")
+            st.progress(prob)
+
+        except Exception as e:
+            st.error("⚠️ Feature mismatch in GMSC model")
+            st.write(e)
 
 # ═══════════════════════════════════════
 # AMEX TAB (FULLY FIXED)
