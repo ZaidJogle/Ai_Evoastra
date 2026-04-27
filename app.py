@@ -3,10 +3,9 @@ import pandas as pd
 import numpy as np
 import pickle
 
-# ── Page config ─────────────────────────
 st.set_page_config(page_title="Credit Risk Predictor", page_icon="💳", layout="wide")
 
-# ── Load models ─────────────────────────
+# ── Load Models ─────────────────────────
 @st.cache_resource
 def load_models():
     models = {}
@@ -26,7 +25,6 @@ def load_models():
 
 models = load_models()
 
-# ── Risk label ─────────────────────────
 def risk_label(prob):
     if prob < 0.3:
         return "🟢 Low Risk"
@@ -35,21 +33,28 @@ def risk_label(prob):
     else:
         return "🔴 High Risk"
 
-# ── UI ─────────────────────────
 st.title("💳 Credit Risk Predictor")
+st.caption("Check if a customer is likely to default based on financial behavior")
 
-tab_gmsc, tab_amex = st.tabs(["🏦 GMSC", "🏢 AMEX"])
+tab1, tab2 = st.tabs(["🏦 GMSC (Basic Users)", "🏢 AMEX (Advanced Users)"])
 
-# ═══════════════════════════════════════
-# GMSC TAB
-# ═══════════════════════════════════════
-with tab_gmsc:
+# ═══════════════════════════════
+# GMSC TAB (User Friendly)
+# ═══════════════════════════════
+with tab1:
 
-    st.subheader("GMSC Risk Prediction")
+    st.subheader("📊 Basic Customer Details")
 
-    age = st.number_input("Age", 18, 100, 40)
-    income = st.number_input("Monthly Income", 0, 100000, 5000)
-    debt = st.slider("Debt Ratio", 0.0, 10.0, 0.5)
+    col1, col2 = st.columns(2)
+
+    with col1:
+        age = st.slider("Age", 18, 100, 30)
+        income = st.number_input("Monthly Income (₹)", 1000, 100000, 5000)
+
+    with col2:
+        debt = st.slider("Debt Ratio (0 = low, 1 = high)", 0.0, 1.0, 0.3)
+
+    st.info("💡 Higher debt ratio and late payments increase risk")
 
     gmsc_input = pd.DataFrame([{
         "age": age,
@@ -66,66 +71,54 @@ with tab_gmsc:
         "income_to_debt": income/(debt+1)
     }])
 
-    model_choice = st.selectbox("Select Model", ["gmsc", "gmsc_xgb"])
+    if st.button("🔍 Check Risk (GMSC)"):
+        model = models["gmsc"]
 
-    if st.button("🔍 Predict GMSC Risk"):
-
-        model = models.get(model_choice)
-
-        if model is None:
-            st.error("Model not found!")
-        else:
+        if model:
             try:
                 features = model.feature_names_in_
-
                 for col in features:
                     if col not in gmsc_input:
                         gmsc_input[col] = 0
-
                 gmsc_input = gmsc_input[features]
 
                 prob = float(model.predict_proba(gmsc_input)[0][1])
 
-                st.metric("Default Probability", f"{prob:.2%}")
-                st.markdown(f"### {risk_label(prob)}")
+                st.success("✅ Prediction Complete")
+
+                st.metric("📊 Default Probability", f"{prob:.2%}")
                 st.progress(prob)
 
-                # Explanation
-                st.subheader("🧠 Prediction Explanation")
+                st.subheader("🧠 What this means")
 
                 if prob > 0.7:
-                    st.write("🔴 High risk: Customer likely to default")
+                    st.error("🔴 High risk: Customer may default")
                 elif prob > 0.3:
-                    st.write("🟠 Moderate risk detected")
+                    st.warning("🟠 Moderate risk: Be cautious")
                 else:
-                    st.write("🟢 Low risk, financially stable")
+                    st.success("🟢 Low risk: Customer is safe")
 
             except Exception as e:
-                st.error("GMSC Prediction Error")
+                st.error("Error in prediction")
                 st.write(e)
 
-# ═══════════════════════════════════════
-# AMEX TAB
-# ═══════════════════════════════════════
-with tab_amex:
+# ═══════════════════════════════
+# AMEX TAB (Advanced Users)
+# ═══════════════════════════════
+with tab2:
 
-    st.subheader("AMEX Default Prediction")
+    st.subheader("📊 Advanced Customer Financial Data")
 
-    model_choice = st.selectbox("Select Model", ["amex", "amex_xgb"])
-    model = models.get(model_choice)
+    model = models["amex"]
 
     if model is None:
-        st.error("Model not found!")
+        st.error("Model not found")
     else:
-        try:
-            FEATURES = list(model.feature_names_in_)
-        except:
-            st.error("Model missing feature names!")
-            st.stop()
+        FEATURES = list(model.feature_names_in_)
 
-        st.info("Enter customer details")
+        st.info("⚠️ This section is for advanced users (financial features required)")
 
-        if st.button("⚡ Auto Fill Sample"):
+        if st.button("⚡ Fill Sample Data"):
             for f in FEATURES:
                 st.session_state[f] = np.random.uniform(0, 1000)
 
@@ -140,7 +133,7 @@ with tab_amex:
 
         amex_input = pd.DataFrame([amex_vals])
 
-        if st.button("🔍 Predict AMEX Risk"):
+        if st.button("🔍 Check Risk (AMEX)"):
 
             try:
                 for col in FEATURES:
@@ -151,24 +144,24 @@ with tab_amex:
 
                 prob = float(model.predict_proba(amex_input)[0][1])
 
-                st.metric("Default Probability", f"{prob:.2%}")
-                st.markdown(f"### {risk_label(prob)}")
+                st.success("✅ Prediction Complete")
+
+                st.metric("📊 Default Probability", f"{prob:.2%}")
                 st.progress(prob)
 
-                # Explanation
-                st.subheader("🧠 Prediction Explanation")
+                st.subheader("🧠 Interpretation")
 
                 if prob > 0.7:
-                    st.write("🔴 High risk due to unstable financial behavior")
+                    st.error("🔴 High risk: Likely to default")
                 elif prob > 0.3:
-                    st.write("🟠 Moderate risk detected")
+                    st.warning("🟠 Moderate risk")
                 else:
-                    st.write("🟢 Low risk, stable customer")
+                    st.success("🟢 Low risk")
 
             except Exception as e:
-                st.error("AMEX Prediction Error")
+                st.error("Prediction error")
                 st.write(e)
 
 # Footer
 st.divider()
-st.caption("ML Models: Logistic Regression | XGBoost | Ensemble")
+st.caption("💡 Built using Machine Learning (Logistic Regression + XGBoost)")
