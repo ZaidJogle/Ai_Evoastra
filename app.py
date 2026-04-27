@@ -3,17 +3,25 @@ import pandas as pd
 import numpy as np
 import pickle
 
-# ── Page Config ─────────────────────────
+# ── Page config ─────────────────────────
 st.set_page_config(page_title="Credit Risk Predictor", page_icon="💳", layout="wide")
 
-# ── Load Models ─────────────────────────
+# ── Load models ─────────────────────────
 @st.cache_resource
 def load_models():
     models = {}
-    try:
-        models["amex"] = pickle.load(open("amex_model.pkl", "rb"))
-    except:
-        models["amex"] = None
+    files = {
+        "gmsc": "gmsc_model.pkl",
+        "gmsc_xgb": "gmsc_xgb_model.pkl",
+        "amex": "amex_model.pkl",
+        "amex_xgb": "amex_xgb_model.pkl",
+    }
+    for key, fname in files.items():
+        try:
+            with open(fname, "rb") as f:
+                models[key] = pickle.load(f)
+        except:
+            models[key] = None
     return models
 
 models = load_models()
@@ -27,151 +35,118 @@ def risk_label(prob):
     else:
         return "🔴 High Risk"
 
-# ── Feature Labels ─────────────────────
-FEATURE_LABELS = {
-    "P_2": "Recent Payment Amount",
-    "D_39": "Payment Delay Score",
-    "B_1": "Outstanding Balance",
-    "B_2": "Credit Utilization",
-    "R_1": "Risk Indicator",
-    "S_3": "Spending Pattern",
-    "D_41": "Recent Delay Count",
-    "B_3": "Balance Change",
-    "D_42": "Missed Payment",
-    "D_43": "Late Payment Trend",
-    "D_44": "Payment Consistency",
-    "B_4": "Balance Variation",
-    "D_45": "Repayment Behaviour",
-    "B_5": "Credit Usage",
-    "R_2": "Risk Pattern",
-    "D_46": "Payment Stability",
-    "D_47": "Default Signal",
-    "D_48": "Credit Health",
-    "D_49": "Financial Stress",
-    "B_6": "Outstanding Dues",
-    "B_7": "Balance Risk",
-    "B_8": "Utilization Pattern",
-    "D_50": "Late Payment Frequency",
-    "D_51": "Debt Pressure",
-    "B_9": "Credit Behaviour",
-    "R_3": "Risk Trend",
-    "D_52": "Missed Payment Frequency",
-    "P_3": "Previous Payment",
-    "B_10": "Balance Trend",
-    "D_53": "Default Warning",
-    "S_5": "Spending Variation",
-    "B_11": "Balance Consistency",
-    "S_6": "Spending Stability",
-    "D_54": "Financial Stability",
-    "R_4": "Risk Escalation",
-    "S_7": "Spending Risk",
-    "B_12": "Credit Stability",
-    "S_8": "Spending Intensity",
-    "D_55": "Delay Severity",
-    "D_56": "Risk Signal",
-    "B_13": "Balance Exposure",
-    "R_5": "Risk Index",
-    "D_57": "Stress Level",
-    "B_14": "Credit Burden",
-    "D_58": "Payment Irregularity",
-    "B_15": "Debt Load",
-    "D_59": "Late Payment Risk",
-    "D_60": "Credit Instability",
-    "D_61": "Default Indicator",
-    "B_16": "Final Balance Risk",
-}
-
-AMEX_FEATURES = list(FEATURE_LABELS.keys())
-
 # ── UI ─────────────────────────
 st.title("💳 Credit Risk Predictor")
-st.subheader("📊 AmEx Customer Risk Analysis")
 
-# Auto Fill
-if st.button("⚡ Auto Fill Sample Data"):
-    for feat in AMEX_FEATURES:
-        st.session_state[f"amex_{feat}"] = np.random.uniform(0, 5000)
+tab_gmsc, tab_amex = st.tabs(["🏦 GMSC", "🏢 AMEX"])
 
-# Input UI
-amex_vals = {}
-groups = [AMEX_FEATURES[i:i+10] for i in range(0, len(AMEX_FEATURES), 10)]
+# ═══════════════════════════════════════
+# GMSC TAB (NO CHANGE - WORKING)
+# ═══════════════════════════════════════
+with tab_gmsc:
 
-for idx, group in enumerate(groups):
-    st.markdown(f"### 🔹 Section {idx+1}")
-    cols = st.columns(2)
+    st.subheader("GMSC Risk Prediction")
 
-    for i, feat in enumerate(group):
-        with cols[i % 2]:
-            amex_vals[feat] = st.slider(
-                FEATURE_LABELS[feat],
-                0.0, 10000.0,
-                st.session_state.get(f"amex_{feat}", 100.0),
-                key=f"amex_{feat}"
-            )
+    age = st.number_input("Age", 18, 100, 40)
+    income = st.number_input("Monthly Income", 0, 100000, 5000)
+    debt = st.slider("Debt Ratio", 0.0, 10.0, 0.5)
 
-# Convert to DataFrame
-amex_input = pd.DataFrame([amex_vals])
+    gmsc_input = pd.DataFrame([{
+        "age": age,
+        "MonthlyIncome": income,
+        "DebtRatio": debt,
+        "RevolvingUtilizationOfUnsecuredLines": 0.3,
+        "NumberOfTime30-59DaysPastDueNotWorse": 0,
+        "NumberOfTime60-89DaysPastDueNotWorse": 0,
+        "NumberOfTimes90DaysLate": 0,
+        "NumberOfOpenCreditLinesAndLoans": 5,
+        "NumberRealEstateLoansOrLines": 1,
+        "NumberOfDependents": 0,
+        "debt_ratio": debt,
+        "income_to_debt": income/(debt+1)
+    }])
 
-st.divider()
+    if st.button("Predict GMSC"):
+        model = models["gmsc"]
+        if model:
+            prob = model.predict_proba(gmsc_input)[0][1]
+            st.success(f"Risk: {risk_label(prob)} ({prob:.2%})")
+        else:
+            st.error("Model not found")
 
-# ── Prediction ─────────────────────────
-if st.button("🔍 Predict Risk", use_container_width=True):
+# ═══════════════════════════════════════
+# AMEX TAB (FULLY FIXED)
+# ═══════════════════════════════════════
+with tab_amex:
+
+    st.subheader("AMEX Default Prediction")
 
     model = models["amex"]
 
     if model is None:
-        st.error("❌ Model file not found!")
+        st.error("AMEX model not found!")
     else:
+
+        # ✅ Get EXACT features from model
         try:
-            # ✅ FIX: correct column order
-            amex_input = amex_input[AMEX_FEATURES]
+            FEATURES = list(model.feature_names_in_)
+        except:
+            st.error("Model missing feature names. Retrain with DataFrame!")
+            st.stop()
 
-            prob = model.predict_proba(amex_input)[0][1]
-            label = risk_label(prob)
+        st.info("Fill customer details below")
 
-            # Result
-            st.subheader("📊 Prediction Result")
-            col1, col2 = st.columns(2)
+        # Auto Fill
+        if st.button("⚡ Auto Fill Sample"):
+            for f in FEATURES:
+                st.session_state[f] = np.random.uniform(0, 1000)
 
-            col1.metric("Default Probability", f"{prob:.2%}")
-            col2.markdown(f"### {label}")
+        # Input UI
+        amex_vals = {}
+        for f in FEATURES:
+            amex_vals[f] = st.number_input(
+                f,
+                value=st.session_state.get(f, 0.0),
+                key=f
+            )
 
-            st.progress(prob)
+        amex_input = pd.DataFrame([amex_vals])
 
-            # ── Explanation ─────────────────
-            st.subheader("🧠 AI Explanation")
+        # ── Prediction ─────────────────
+        if st.button("🔍 Predict AMEX Risk"):
 
-            explanation = []
+            try:
+                # ✅ Ensure correct columns
+                for col in FEATURES:
+                    if col not in amex_input:
+                        amex_input[col] = 0
 
-            if prob > 0.7:
-                explanation.append("High risk due to unstable financial behaviour.")
-            elif prob > 0.3:
-                explanation.append("Moderate risk detected.")
-            else:
-                explanation.append("Low risk, stable customer.")
+                amex_input = amex_input[FEATURES]
 
-            if amex_input["D_39"][0] > 50:
-                explanation.append("Frequent payment delays.")
-            if amex_input["B_1"][0] > 5000:
-                explanation.append("High outstanding balance.")
-            if amex_input["P_2"][0] < 500:
-                explanation.append("Low recent payments.")
-            if amex_input["D_48"][0] > 70:
-                explanation.append("Poor credit health.")
+                prob = model.predict_proba(amex_input)[0][1]
+                label = risk_label(prob)
 
-            for line in explanation:
-                st.write("•", line)
+                # Result
+                st.subheader("📊 Result")
+                col1, col2 = st.columns(2)
 
-            # ── Summary ─────────────────
-            st.subheader("📌 Interpretation")
+                col1.metric("Probability", f"{prob:.2%}")
+                col2.markdown(f"### {label}")
 
-            st.markdown(f"""
-            - **Probability:** {prob:.2%}  
-            - **Risk Level:** {label}  
+                st.progress(prob)
 
-            Based on customer financial behaviour and credit activity.
-            """)
+                # ── Explanation ─────────────────
+                st.subheader("🧠 Explanation")
 
-        except Exception as e:
-            st.error("⚠️ Input mismatch or preprocessing issue!")
-            st.write(e)
+                if prob > 0.7:
+                    st.write("• High risk due to unstable financial behavior.")
+                elif prob > 0.3:
+                    st.write("• Moderate risk detected.")
+                else:
+                    st.write("• Low risk, stable customer.")
+
+                st.write("• Based on payment patterns, credit usage and history.")
+
+            except Exception as e:
+                st.error("Prediction failed due to feature mismatch")
+                st.write(e)
