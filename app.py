@@ -94,8 +94,8 @@ with tab1:
         "debt_ratio": debt,
         "income_to_debt": income/(debt+1)
     }])
-    if st.button("🔍 Check Risk (GMSC)"):
-        model = models["gmsc"]
+if st.button("🔍 Check Risk (GMSC)"):
+      model = models["gmsc"]
 
         if model:
             try:
