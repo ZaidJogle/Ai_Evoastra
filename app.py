@@ -146,14 +146,14 @@ with tab2:
         amex_vals = {}
 
         for f in FEATURES:
-    label = FEATURE_LABELS.get(f, f)  # friendly name
+            label = FEATURE_LABELS.get(f, f)  # friendly name
 
-    amex_vals[f] = st.number_input(
-        label,
-        value=st.session_state.get(f, 0.0),
-        key=f,
-        help=f"Original feature: {f}"   # optional
-    )
+            amex_vals[f] = st.number_input(
+                label,
+                value=st.session_state.get(f, 0.0),
+                key=f,
+                help=f"Original feature: {f}"   # optional
+            )
         amex_input = pd.DataFrame([amex_vals])
 
         if st.button("🔍 Check Risk (AMEX)"):
