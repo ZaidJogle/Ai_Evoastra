@@ -71,27 +71,29 @@ with tab1:
     with col1:
         age = st.slider("Age", 18, 100, 30)
         income = st.number_input("Monthly Income (₹)", 1000, 100000, 5000)
+        dependents = st.number_input("Number of Dependents", 0, 10, 0)
 
     with col2:
-        debt = st.slider("Debt Ratio (0 = low, 1 = high)", 0.0, 1.0, 0.3)
+        debt = st.slider("Debt Ratio", 0.0, 1.0, 0.3)
+        late_payments = st.number_input("Number of Late Payments", 0, 20, 0)
+        credit_lines = st.number_input("Open Credit Lines", 0, 20, 5)
 
-    st.info("💡 Higher debt ratio and late payments increase risk")
+    st.info("💡 More late payments + high debt = higher risk")
 
     gmsc_input = pd.DataFrame([{
         "age": age,
         "MonthlyIncome": income,
         "DebtRatio": debt,
-        "RevolvingUtilizationOfUnsecuredLines": 0.3,
-        "NumberOfTime30-59DaysPastDueNotWorse": 0,
-        "NumberOfTime60-89DaysPastDueNotWorse": 0,
-        "NumberOfTimes90DaysLate": 0,
-        "NumberOfOpenCreditLinesAndLoans": 5,
+        "RevolvingUtilizationOfUnsecuredLines": debt,
+        "NumberOfTime30-59DaysPastDueNotWorse": late_payments,
+        "NumberOfTime60-89DaysPastDueNotWorse": late_payments,
+        "NumberOfTimes90DaysLate": late_payments,
+        "NumberOfOpenCreditLinesAndLoans": credit_lines,
         "NumberRealEstateLoansOrLines": 1,
-        "NumberOfDependents": 0,
+        "NumberOfDependents": dependents,
         "debt_ratio": debt,
         "income_to_debt": income/(debt+1)
     }])
-
     if st.button("🔍 Check Risk (GMSC)"):
         model = models["gmsc"]
 
@@ -145,16 +147,16 @@ with tab2:
 
         amex_vals = {}
 
-        for f in FEATURES:
-            label = FEATURE_LABELS.get(f, f)  # friendly name
+    for f in FEATURES:
+        label = FEATURE_LABELS.get(f, "Financial Indicator")
 
-            amex_vals[f] = st.number_input(
-                label,
-                value=st.session_state.get(f, 0.0),
-                key=f,
-                help=f"Original feature: {f}"   # optional
-            )
-        amex_input = pd.DataFrame([amex_vals])
+        amex_vals[f] = st.number_input(
+            label,
+            value=st.session_state.get(f, 0.0),
+            key=f
+        )
+
+    amex_input = pd.DataFrame([amex_vals])
 
         if st.button("🔍 Check Risk (AMEX)"):
 
