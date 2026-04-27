@@ -160,22 +160,25 @@ with tab_amex:
 
         amex_input = pd.DataFrame([amex_vals])
 
-        if st.button("🔍 Predict AMEX Risk"):
+        if st.button("🔍 Predict"):
 
-            try:
-                # ✅ Align features
-                for col in FEATURES:
-                    if col not in amex_input:
-                        amex_input[col] = 0
+    # 1️⃣ Prediction first
+    prob = model.predict_proba(input_data)[0][1]
+    prob = float(prob)
 
-                amex_input = amex_input[FEATURES]
+    # 2️⃣ Show result
+    st.metric("Probability", f"{prob:.2%}")
+    st.progress(prob)
 
-                prob = model.predict_proba(amex_input)[0][1]
+    # 3️⃣ THEN explanation
+    st.subheader("🧠 Prediction Explanation")
 
-                st.metric("Default Probability", f"{prob:.2%}")
-                st.markdown(f"### {risk_label(prob)}")
-                st.progress(float(prob))
-
+    if prob > 0.7:
+        st.write("🔴 High risk")
+    elif prob > 0.3:
+        st.write("🟠 Medium risk")
+    else:
+        st.write("🟢 Low risk")
                 # Explanation
                 st.subheader("🧠 Explanation")
                 if prob > 0.7:
