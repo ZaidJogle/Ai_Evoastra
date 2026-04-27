@@ -3,30 +3,22 @@ import pandas as pd
 import numpy as np
 import pickle
 
-# ── Page config ─────────────────────────────────────────────
+# ── Page Config ─────────────────────────
 st.set_page_config(page_title="Credit Risk Predictor", page_icon="💳", layout="wide")
 
-# ── Load models ─────────────────────────────────────────────
+# ── Load Models ─────────────────────────
 @st.cache_resource
 def load_models():
     models = {}
-    files = {
-        "gmsc": "gmsc_model.pkl",
-        "gmsc_xgb": "gmsc_xgb_model.pkl",
-        "amex": "amex_model.pkl",
-        "amex_xgb": "amex_xgb_model.pkl",
-    }
-    for key, fname in files.items():
-        try:
-            with open(fname, "rb") as f:
-                models[key] = pickle.load(f)
-        except:
-            models[key] = None
+    try:
+        models["amex"] = pickle.load(open("amex_model.pkl", "rb"))
+    except:
+        models["amex"] = None
     return models
 
 models = load_models()
 
-# ── Risk Label ─────────────────────────────────────────────
+# ── Risk Label ─────────────────────────
 def risk_label(prob):
     if prob < 0.3:
         return "🟢 Low Risk"
@@ -35,7 +27,7 @@ def risk_label(prob):
     else:
         return "🔴 High Risk"
 
-# ── AMEX Feature Labels ─────────────────────────────────────
+# ── Feature Labels ─────────────────────
 FEATURE_LABELS = {
     "P_2": "Recent Payment Amount",
     "D_39": "Payment Delay Score",
@@ -45,12 +37,12 @@ FEATURE_LABELS = {
     "S_3": "Spending Pattern",
     "D_41": "Recent Delay Count",
     "B_3": "Balance Change",
-    "D_42": "Missed Payment Indicator",
+    "D_42": "Missed Payment",
     "D_43": "Late Payment Trend",
     "D_44": "Payment Consistency",
     "B_4": "Balance Variation",
     "D_45": "Repayment Behaviour",
-    "B_5": "Credit Usage Level",
+    "B_5": "Credit Usage",
     "R_2": "Risk Pattern",
     "D_46": "Payment Stability",
     "D_47": "Default Signal",
@@ -91,59 +83,62 @@ FEATURE_LABELS = {
 
 AMEX_FEATURES = list(FEATURE_LABELS.keys())
 
-# ── UI ─────────────────────────────────────────────────────
+# ── UI ─────────────────────────
 st.title("💳 Credit Risk Predictor")
-tab_amex = st.tabs(["🏢 AmEx Prediction"])[0]
+st.subheader("📊 AmEx Customer Risk Analysis")
 
-with tab_amex:
+# Auto Fill
+if st.button("⚡ Auto Fill Sample Data"):
+    for feat in AMEX_FEATURES:
+        st.session_state[f"amex_{feat}"] = np.random.uniform(0, 5000)
 
-    st.subheader("📊 Customer Financial Profile")
+# Input UI
+amex_vals = {}
+groups = [AMEX_FEATURES[i:i+10] for i in range(0, len(AMEX_FEATURES), 10)]
 
-    # Auto Fill
-    if st.button("⚡ Auto Fill Sample Data"):
-        for feat in AMEX_FEATURES:
-            st.session_state[f"amex_{feat}"] = np.random.uniform(0, 5000)
+for idx, group in enumerate(groups):
+    st.markdown(f"### 🔹 Section {idx+1}")
+    cols = st.columns(2)
 
-    amex_vals = {}
+    for i, feat in enumerate(group):
+        with cols[i % 2]:
+            amex_vals[feat] = st.slider(
+                FEATURE_LABELS[feat],
+                0.0, 10000.0,
+                st.session_state.get(f"amex_{feat}", 100.0),
+                key=f"amex_{feat}"
+            )
 
-    groups = [AMEX_FEATURES[i:i+10] for i in range(0, len(AMEX_FEATURES), 10)]
+# Convert to DataFrame
+amex_input = pd.DataFrame([amex_vals])
 
-    for idx, group in enumerate(groups):
-        st.markdown(f"### 🔹 Section {idx+1}")
-        cols = st.columns(2)
+st.divider()
 
-        for i, feat in enumerate(group):
-            with cols[i % 2]:
-                amex_vals[feat] = st.slider(
-                    FEATURE_LABELS[feat],
-                    0.0, 10000.0,
-                    st.session_state.get(f"amex_{feat}", 100.0),
-                    key=f"amex_{feat}"
-                )
+# ── Prediction ─────────────────────────
+if st.button("🔍 Predict Risk", use_container_width=True):
 
-    amex_input = pd.DataFrame([amex_vals])
+    model = models["amex"]
 
-    st.divider()
+    if model is None:
+        st.error("❌ Model file not found!")
+    else:
+        try:
+            # ✅ FIX: correct column order
+            amex_input = amex_input[AMEX_FEATURES]
 
-    if st.button("🔍 Predict Risk", use_container_width=True):
-
-        model = models.get("amex")
-
-        if model is None:
-            st.error("Model not found!")
-        else:
             prob = model.predict_proba(amex_input)[0][1]
             label = risk_label(prob)
 
+            # Result
             st.subheader("📊 Prediction Result")
-
             col1, col2 = st.columns(2)
+
             col1.metric("Default Probability", f"{prob:.2%}")
             col2.markdown(f"### {label}")
 
             st.progress(prob)
 
-            # ── Explanation ─────────────────────────
+            # ── Explanation ─────────────────
             st.subheader("🧠 AI Explanation")
 
             explanation = []
@@ -151,12 +146,12 @@ with tab_amex:
             if prob > 0.7:
                 explanation.append("High risk due to unstable financial behaviour.")
             elif prob > 0.3:
-                explanation.append("Moderate risk with some warning signs.")
+                explanation.append("Moderate risk detected.")
             else:
-                explanation.append("Low risk, financially stable customer.")
+                explanation.append("Low risk, stable customer.")
 
             if amex_input["D_39"][0] > 50:
-                explanation.append("Frequent payment delays detected.")
+                explanation.append("Frequent payment delays.")
             if amex_input["B_1"][0] > 5000:
                 explanation.append("High outstanding balance.")
             if amex_input["P_2"][0] < 500:
@@ -167,21 +162,16 @@ with tab_amex:
             for line in explanation:
                 st.write("•", line)
 
-            # ── Risk Summary ────────────────────────
+            # ── Summary ─────────────────
             st.subheader("📌 Interpretation")
 
             st.markdown(f"""
             - **Probability:** {prob:.2%}  
             - **Risk Level:** {label}  
 
-            This prediction is based on customer's financial behaviour,
-            payment history and credit usage patterns.
+            Based on customer financial behaviour and credit activity.
             """)
 
-            # ── Key Drivers ────────────────────────
-            st.subheader("🔍 Key Risk Drivers")
-
-            drivers = sorted(amex_vals.items(), key=lambda x: abs(x[1]), reverse=True)[:5]
-
-            for d in drivers:
-                st.write(f"• {FEATURE_LABELS[d[0]]}")
+        except Exception as e:
+            st.error("⚠️ Input mismatch or preprocessing issue!")
+            st.write(e)
