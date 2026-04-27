@@ -41,13 +41,12 @@ st.title("💳 Credit Risk Predictor")
 tab_gmsc, tab_amex = st.tabs(["🏦 GMSC", "🏢 AMEX"])
 
 # ═══════════════════════════════════════
-# GMSC TAB (FIXED)
+# GMSC TAB
 # ═══════════════════════════════════════
 with tab_gmsc:
 
     st.subheader("GMSC Risk Prediction")
 
-    # Inputs
     age = st.number_input("Age", 18, 100, 40)
     income = st.number_input("Monthly Income", 0, 100000, 5000)
     debt = st.slider("Debt Ratio", 0.0, 10.0, 0.5)
@@ -70,13 +69,13 @@ with tab_gmsc:
     model_choice = st.selectbox("Select Model", ["gmsc", "gmsc_xgb"])
 
     if st.button("🔍 Predict GMSC Risk"):
+
         model = models.get(model_choice)
 
         if model is None:
             st.error("Model not found!")
         else:
             try:
-                # ✅ FIX: align features
                 features = model.feature_names_in_
 
                 for col in features:
@@ -85,45 +84,28 @@ with tab_gmsc:
 
                 gmsc_input = gmsc_input[features]
 
-                prob = model.predict_proba(gmsc_input)[0][1]
+                prob = float(model.predict_proba(gmsc_input)[0][1])
 
                 st.metric("Default Probability", f"{prob:.2%}")
                 st.markdown(f"### {risk_label(prob)}")
-                st.progress(float(prob))
+                st.progress(prob)
+
+                # Explanation
+                st.subheader("🧠 Prediction Explanation")
+
+                if prob > 0.7:
+                    st.write("🔴 High risk: Customer likely to default")
+                elif prob > 0.3:
+                    st.write("🟠 Moderate risk detected")
+                else:
+                    st.write("🟢 Low risk, financially stable")
 
             except Exception as e:
                 st.error("GMSC Prediction Error")
                 st.write(e)
-# ── GMSC Explanation ─────────────────
-st.subheader("🧠 Prediction Explanation")
 
-explanation = []
-
-if prob > 0.7:
-    explanation.append("🔴 High risk: Customer is likely to default.")
-elif prob > 0.3:
-    explanation.append("🟠 Moderate risk: Some financial warning signs detected.")
-else:
-    explanation.append("🟢 Low risk: Customer is financially stable.")
-
-# Feature-based reasoning
-if gmsc_input["NumberOfTimes90DaysLate"][0] > 0:
-    explanation.append("⚠️ History of 90+ days late payments.")
-
-if gmsc_input["DebtRatio"][0] > 0.5:
-    explanation.append("⚠️ High debt compared to income.")
-
-if gmsc_input["RevolvingUtilizationOfUnsecuredLines"][0] > 0.7:
-    explanation.append("⚠️ High credit utilization.")
-
-if gmsc_input["MonthlyIncome"][0] < 3000:
-    explanation.append("⚠️ Low monthly income may affect repayment ability.")
-
-# Show explanation
-for line in explanation:
-    st.write("•", line)
 # ═══════════════════════════════════════
-# AMEX TAB (FULLY FIXED)
+# AMEX TAB
 # ═══════════════════════════════════════
 with tab_amex:
 
@@ -143,14 +125,12 @@ with tab_amex:
 
         st.info("Enter customer details")
 
-        # Auto-fill
         if st.button("⚡ Auto Fill Sample"):
             for f in FEATURES:
                 st.session_state[f] = np.random.uniform(0, 1000)
 
         amex_vals = {}
 
-        # Dynamic input
         for f in FEATURES:
             amex_vals[f] = st.number_input(
                 f,
@@ -160,33 +140,30 @@ with tab_amex:
 
         amex_input = pd.DataFrame([amex_vals])
 
-       if st.button("🔍 Predict");
+        if st.button("🔍 Predict AMEX Risk"):
 
-            # 1️⃣ Prediction first
-            prob = model.predict_proba(input_data)[0][1]
-            prob = float(prob)
+            try:
+                for col in FEATURES:
+                    if col not in amex_input:
+                        amex_input[col] = 0
 
-            # 2️⃣ Show result
-            st.metric("Probability", f"{prob:.2%}")
-            st.progress(prob)
+                amex_input = amex_input[FEATURES]
 
-            # 3️⃣ THEN explanation
-            st.subheader("🧠 Prediction Explanation")
+                prob = float(model.predict_proba(amex_input)[0][1])
 
-            if prob > 0.7:
-                st.write("🔴 High risk")
-            elif prob > 0.3:
-                st.write("🟠 Medium risk")
-            else:
-                st.write("🟢 Low risk")
+                st.metric("Default Probability", f"{prob:.2%}")
+                st.markdown(f"### {risk_label(prob)}")
+                st.progress(prob)
+
                 # Explanation
-                st.subheader("🧠 Explanation")
+                st.subheader("🧠 Prediction Explanation")
+
                 if prob > 0.7:
-                    st.write("• High risk due to unstable financial behavior.")
+                    st.write("🔴 High risk due to unstable financial behavior")
                 elif prob > 0.3:
-                    st.write("• Moderate risk detected.")
+                    st.write("🟠 Moderate risk detected")
                 else:
-                    st.write("• Low risk, stable customer.")
+                    st.write("🟢 Low risk, stable customer")
 
             except Exception as e:
                 st.error("AMEX Prediction Error")
